@@ -3,23 +3,11 @@ import axios from 'axios';
 import qs from 'qs';
 import {Table, Button, Modal, ModalHeader, ModalBody, ModalFooter, Label, Input, FormGroup} from 'reactstrap';
 
-class App extends Component {
+export default class App extends Component {
     state = {
-        messageAdd: "Add new contact",
-        messageEdit: "Edit contact",
-        messageFind: "Find contact",
-        messageDelete: "Delete contact",
+        userMessage: '',
         persons: [],
-        newContactData: {
-            name: '',
-            phoneNumber: '',
-        },
-        editContactData: {
-            id: '',
-            name: '',
-            phoneNumber: '',
-        },
-        deleteContactData: {
+        currentContactData: {
             id: '',
             name: '',
             phoneNumber: '',
@@ -31,116 +19,65 @@ class App extends Component {
         deleteContactModal: false
     }
 
-    editContact(id, name, phoneNumber) {
-        this.setState({
-            editContactData: {
-                id,
-                name,
-                phoneNumber,
-            },
-            editContactModal: !this.state.editContactModal
+    refreshContacts() {
+        axios.get('http://localhost:9090/getContacts').then((response) => {
+            this.setState({
+                persons: response.data,
+                newContactModal: false,
+                editContactModal: false,
+                findContactModal: false,
+                deleteContactModal: false,
+            })
         })
     }
 
-    deleteContact(id, name, phoneNumber) {
-        console.log(id, name, phoneNumber);
-        this.setState({
-            deleteContactData: {
-                id,
-                name,
-                phoneNumber,
-            },
-            deleteContactModal: !this.state.deleteContactModal
-        })
+    componentDidMount() {
+        this.refreshContacts()
+    }
+
+    catchError(error) {
+        if (error.response.status === 404) {
+            this.setState({
+                userMessage: "Request not found",
+            })
+        } else {
+            this.setState({
+                userMessage: error.response.data,
+            })
+        }
+    }
+
+    addContactReq() {
+        axios.post('http://localhost:9090/addContact',
+            qs.stringify({
+                "name": this.state.currentContactData.name,
+                "phoneNumber": this.state.currentContactData.phoneNumber
+            }), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            }
+        ).then(() => this.refreshContacts()
+        ).catch(error => this.catchError(error))
     }
 
     editContactReq() {
         axios.put('http://localhost:9090/changeContact',
             qs.stringify({
-                "id": this.state.editContactData.id,
-                "name": this.state.editContactData.name,
-                "phoneNumber": this.state.editContactData.phoneNumber
-            }),
-            {
+                "id": this.state.currentContactData.id,
+                "name": this.state.currentContactData.name,
+                "phoneNumber": this.state.currentContactData.phoneNumber
+            }), {
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-            }
-        ).then(() =>
-            axios.get('http://localhost:9090/getContacts').then((response) => {
-                this.setState({
-                    persons: response.data,
-                    editContactModal: false
-                })
-            })
-        ).catch(error => {
-            if (error.response.status === 404) {
-                this.setState({
-                    messageEdit: "Request not found",
-                    persons: this.state.persons, editContactData: {
-                        id: this.state.editContactData.id,
-                        name: this.state.editContactData.name,
-                        phoneNumber: this.state.editContactData.phoneNumber,
-                    },
-                    editContactModal: true
-                })
-            } else {
-                this.setState({
-                    messageEdit: error.response.data,
-                    persons: this.state.persons, editContactData: {
-                        id: this.state.editContactData.id,
-                        name: this.state.editContactData.name,
-                        phoneNumber: this.state.editContactData.phoneNumber,
-                    },
-                    editContactModal: true
-                })
-            }
-        })
-    }
-
-    addContact() {
-        let param = qs.stringify({
-            "name": this.state.newContactData.name,
-            "phoneNumber": this.state.newContactData.phoneNumber
-        })
-        console.log(param)
-        axios.post('http://localhost:9090/addContact',
-            param, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 }
-            }).then(() =>
-            axios.get('http://localhost:9090/getContacts').then((response) => {
-                this.setState({
-                    messageAdd: "Add contact",
-                    persons: response.data, newContactData: {
-                        name: '',
-                        phoneNumber: '',
-                    },
-                    newContactModal: false
-                })
-            })
-        ).catch(error => {
-            if (error.response.status === 404) {
-                this.setState({
-                    messageAdd: "Request not found",
-                    persons: this.state.persons,
-                    newContactData: this.state.newContactData,
-                    newContactModal: true
-                })
-            } else {
-                this.setState({
-                    messageAdd: error.response.data,
-                    persons: this.state.persons,
-                    newContactData: this.state.newContactData,
-                    newContactModal: true
-                })
             }
-        })
+        ).then(() => this.refreshContacts()
+        ).catch(error => this.catchError(error))
     }
 
-    findContactByName() {
-        axios.get('http://localhost:9090/findByName', {
+    findContactReq(filter) {
+        axios.get('http://localhost:9090/findBy' + filter, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
@@ -149,171 +86,85 @@ class App extends Component {
             }
         }).then((response) => {
             this.setState({
-                messageFind: "Find contact",
                 persons: response.data,
                 findContactData: '',
                 findContactModal: false
             })
-        }).catch(error => {
-            if (error.response.status === 404) {
-                this.setState({
-                    messageFind: "Request not found",
-                    persons: this.state.persons,
-                    findContactData: this.state.findContactData,
-                    findContactModal: true
-                })
-            } else {
-                this.setState({
-                    messageFind: error.response.data,
-                    persons: this.state.persons,
-                    findContactData: this.state.findContactData,
-                    findContactModal: true
-                })
-            }
-        })
-    }
-
-    findContactByPhone() {
-        axios.get('http://localhost:9090/findByPhone', {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            params: {
-                "filter": this.state.findContactData
-            }
-        }).then((response) => {
-            this.setState({
-                messageFind: "Find contact",
-                persons: response.data,
-                findContactData: '',
-                findContactModal: false
-            })
-        }).catch(error => {
-            if (error.response.status === 404) {
-                this.setState({
-                    messageFind: "Request not found",
-                    persons: this.state.persons,
-                    findContactData: this.state.findContactData,
-                    findContactModal: true
-                })
-            } else {
-                this.setState({
-                    messageFind: error.response.data,
-                    persons: this.state.persons,
-                    findContactData: this.state.findContactData,
-                    findContactModal: true
-                })
-            }
-        })
+        }).catch(error => this.catchError(error))
     }
 
     deleteContactReq() {
-        let param = qs.stringify({
-            "id": this.state.deleteContactData.id,
-            "name": this.state.deleteContactData.name,
-            "phoneNumber": this.state.deleteContactData.phoneNumber
-        })
         axios.delete('http://localhost:9090/deleteContact',
             {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 params: {
-                    "id": this.state.deleteContactData.id,
-                    "name": this.state.deleteContactData.name,
-                    "phoneNumber": this.state.deleteContactData.phoneNumber
+                    "id": this.state.currentContactData.id
                 }
             }
-        ).then(() =>
-            axios.get('http://localhost:9090/getContacts').then((response) => {
-                this.setState({
-                    persons: response.data,
-                    deleteContactModal: false
-                })
-            })
-        ).catch(error => {
-            if (error.response.status === 404) {
-                this.setState({
-                    messageDelete: "Request not found",
-                    persons: this.state.persons, deleteContactData: {
-                        id: this.state.deleteContactData.id,
-                        name: this.state.deleteContactData.name,
-                        phoneNumber: this.state.deleteContactData.phoneNumber,
-                    },
-                    deleteContactModal: true
-                })
-            } else {
-                this.setState({
-                    messageDelete: error.response.data,
-                    persons: this.state.persons, deleteContactData: {
-                        id: this.state.deleteContactData.id,
-                        name: this.state.deleteContactData.name,
-                        phoneNumber: this.state.deleteContactData.phoneNumber,
-                    },
-                    deleteContactModal: true
-                })
-            }
-        })
+        ).then(() => this.refreshContacts()
+        ).catch(error => this.catchError(error))
     }
 
     goBack() {
-        axios.get('http://localhost:9090/getContacts').then((response) => {
-            this.setState({
-                messageAdd: "Add new contact",
-                messageEdit: "Edit contact",
-                messageFind: "Find contact",
-                messageDelete: "Delete contact",
-                persons: response.data,
-                newContactData: {
-                    name: '',
-                    phoneNumber: '',
-                },
-                editContactData: {
-                    id: '',
-                    name: '',
-                    phoneNumber: '',
-                },
-                findContactData: '',
-                newContactModal: false,
-                editContactModal: false,
-                findContactModal: false,
-            })
+        this.refreshContacts()
+    }
+
+    editContact(id, name, phoneNumber) {
+        this.setState({
+            currentContactData: {
+                id,
+                name,
+                phoneNumber,
+            },
+            userMessage: "Edit contact",
+            editContactModal: !this.state.editContactModal
         })
     }
 
-    componentDidMount() {
-        axios.get('http://localhost:9090/getContacts').then((response) => {
-            this.setState({
-                persons: response.data
-            })
+    deleteContact(id, name, phoneNumber) {
+        this.setState({
+            currentContactData: {
+                id,
+                name,
+                phoneNumber
+            },
+            userMessage: "Delete contact",
+            deleteContactModal: !this.state.deleteContactModal
         })
     }
 
     toggleNewContactModal() {
         this.setState({
+            currentContactData: {
+                id: '',
+                name: '',
+                phoneNumber: '',
+            },
+            userMessage: "Add new contact",
             newContactModal: !this.state.newContactModal,
-            messageAdd: "Add new contact",
         })
     }
 
     toggleEditContactModal() {
         this.setState({
+            userMessage: "Edit contact",
             editContactModal: !this.state.editContactModal,
-            messageEdit: "Edit contact",
         })
     }
 
     toggleDeleteContactModal() {
         this.setState({
+            userMessage: "Delete contact",
             deleteContactModal: !this.state.deleteContactModal,
-            messageDelete: "Delete contact",
         })
     }
 
     toggleFindContactModal() {
         this.setState({
+            userMessage: "Find contact",
             findContactModal: !this.state.findContactModal,
-            messageFind: "Find contact"
         })
     }
 
@@ -346,50 +197,52 @@ class App extends Component {
                         onClick={this.goBack.bind(this)}>Back</Button>
 
                 <Modal isOpen={this.state.newContactModal} toggle={this.toggleNewContactModal.bind(this)}>
-                    <ModalHeader toggle={this.toggleNewContactModal.bind(this)}>{this.state.messageAdd}</ModalHeader>
+                    <ModalHeader toggle={this.toggleNewContactModal.bind(this)}>{this.state.userMessage}</ModalHeader>
                     <ModalBody>
                         <FormGroup>
                             <Label for="name">Contact name</Label>
-                            <Input name="name" value={this.state.newContactData.name} onChange={(e) => {
-                                let newContactData = this.state.newContactData;
-                                newContactData.name = e.target.value;
-                                this.setState({newContactData});
+                            <Input name="name" value={this.state.currentContactData.name} onChange={(e) => {
+                                let currentContactData = this.state.currentContactData;
+                                currentContactData.name = e.target.value;
+                                this.setState({currentContactData});
                             }}/>
                         </FormGroup>
                         <FormGroup>
                             <Label for="phoneNumber">Phone number</Label>
-                            <Input name="phoneNumber" value={this.state.newContactData.phoneNumber} onChange={(e) => {
-                                let newContactData = this.state.newContactData;
-                                newContactData.phoneNumber = e.target.value;
-                                this.setState({newContactData});
-                            }}/>
+                            <Input name="phoneNumber" value={this.state.currentContactData.phoneNumber}
+                                   onChange={(e) => {
+                                       let currentContactData = this.state.currentContactData;
+                                       currentContactData.phoneNumber = e.target.value;
+                                       this.setState({currentContactData});
+                                   }}/>
                         </FormGroup>
                     </ModalBody>
                     <ModalFooter>
-                        <Button color="success" onClick={this.addContact.bind(this)}>Add new
+                        <Button color="success" onClick={this.addContactReq.bind(this)}>Add new
                             contact</Button>{' '}
                         <Button color="secondary" onClick={this.toggleNewContactModal.bind(this)}>Cancel</Button>
                     </ModalFooter>
                 </Modal>
 
                 <Modal isOpen={this.state.editContactModal} toggle={this.toggleEditContactModal.bind(this)}>
-                    <ModalHeader toggle={this.toggleEditContactModal.bind(this)}>{this.state.messageEdit}</ModalHeader>
+                    <ModalHeader toggle={this.toggleEditContactModal.bind(this)}>{this.state.userMessage}</ModalHeader>
                     <ModalBody>
                         <FormGroup>
                             <Label for="name">Contact name</Label>
-                            <Input name="name" value={this.state.editContactData.name} onChange={(e) => {
-                                let editContactData = this.state.editContactData;
-                                editContactData.name = e.target.value;
-                                this.setState({editContactData});
+                            <Input name="name" value={this.state.currentContactData.name} onChange={(e) => {
+                                let currentContactData = this.state.currentContactData;
+                                currentContactData.name = e.target.value;
+                                this.setState({currentContactData});
                             }}/>
                         </FormGroup>
                         <FormGroup>
                             <Label for="phoneNumber">Phone number</Label>
-                            <Input name="phoneNumber" value={this.state.editContactData.phoneNumber} onChange={(e) => {
-                                let editContactData = this.state.editContactData;
-                                editContactData.phoneNumber = e.target.value;
-                                this.setState({editContactData});
-                            }}/>
+                            <Input name="phoneNumber" value={this.state.currentContactData.phoneNumber}
+                                   onChange={(e) => {
+                                       let editContactData = this.state.currentContactData;
+                                       editContactData.phoneNumber = e.target.value;
+                                       this.setState({editContactData});
+                                   }}/>
                         </FormGroup>
                     </ModalBody>
                     <ModalFooter>
@@ -401,13 +254,13 @@ class App extends Component {
 
                 <Modal isOpen={this.state.deleteContactModal} toggle={this.toggleDeleteContactModal.bind(this)}>
                     <ModalHeader
-                        toggle={this.toggleDeleteContactModal.bind(this)}>{this.state.messageDelete}</ModalHeader>
+                        toggle={this.toggleDeleteContactModal.bind(this)}>{this.state.userMessage}</ModalHeader>
                     <ModalBody>
                         <FormGroup>
-                            <Label for="name">{this.state.deleteContactData.name}</Label>
+                            <Label for="name">{this.state.currentContactData.name}</Label>
                         </FormGroup>
                         <FormGroup>
-                            <Label for="phoneNumber">{this.state.deleteContactData.phoneNumber}</Label>
+                            <Label for="phoneNumber">{this.state.currentContactData.phoneNumber}</Label>
                         </FormGroup>
                     </ModalBody>
                     <ModalFooter>
@@ -417,14 +270,13 @@ class App extends Component {
                     </ModalFooter>
                 </Modal>
 
-
                 <Modal isOpen={this.state.findContactModal} toggle={this.toggleFindContactModal.bind(this)}>
-                    <ModalHeader toggle={this.toggleFindContactModal.bind(this)}>{this.state.messageFind}</ModalHeader>
+                    <ModalHeader toggle={this.toggleFindContactModal.bind(this)}>{this.state.userMessage}</ModalHeader>
                     <ModalBody>
                         <FormGroup>
                             <Label for="filter">Filter</Label>
                             <Input name="filter" value={this.state.findContactData} onChange={(e) => {
-                                let findContactData = this.state.findContactData;
+                                let findContactData;
                                 findContactData = e.target.value;
                                 this.setState({findContactData});
                             }}/>
@@ -432,10 +284,10 @@ class App extends Component {
                     </ModalBody>
                     <ModalFooter>
                         <Button color="primary"
-                                onClick={this.findContactByName.bind(this)}>Find
+                                onClick={this.findContactReq.bind(this, 'Name')}>Find
                             contact by name</Button>{' '}
                         <Button color="primary"
-                                onClick={this.findContactByPhone.bind(this)}>Find
+                                onClick={this.findContactReq.bind(this, 'Phone')}>Find
                             contact by phone</Button>{' '}
                         <Button color="secondary" onClick={this.toggleFindContactModal.bind(this)}>Cancel</Button>
                     </ModalFooter>
@@ -458,5 +310,3 @@ class App extends Component {
         );
     }
 }
-
-export default App;
