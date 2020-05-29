@@ -1,7 +1,6 @@
 import React, {Component,} from 'react';
-import axios from 'axios';
-import qs from 'qs';
 import {Table, Button, Modal, ModalHeader, ModalBody, ModalFooter, Label, Input, FormGroup} from 'reactstrap';
+import Service from "./Service";
 
 export default class App extends Component {
     state = {
@@ -19,93 +18,42 @@ export default class App extends Component {
         deleteContactModal: false
     }
 
+    requestService = new Service()
+
     refreshContacts() {
-        axios.get('http://localhost:9090/getContacts').then((response) => {
-            this.setState({
-                persons: response.data,
-                newContactModal: false,
-                editContactModal: false,
-                findContactModal: false,
-                deleteContactModal: false,
-            })
-        })
+        this.requestService.getContacts().then((state) => this.setState(state))
     }
 
     componentDidMount() {
         this.refreshContacts()
     }
 
-    catchError(error) {
-        if (error.response.status === 404) {
-            this.setState({
-                userMessage: "Request not found",
-            })
-        } else {
-            this.setState({
-                userMessage: error.response.data,
-            })
-        }
-    }
-
     addContactReq() {
-        axios.post('http://localhost:9090/addContact',
-            qs.stringify({
-                "name": this.state.currentContactData.name,
-                "phoneNumber": this.state.currentContactData.phoneNumber
-            }), {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            }
-        ).then(() => this.refreshContacts()
-        ).catch(error => this.catchError(error))
+        this.requestService.addContact(
+            this.state.currentContactData.name,
+            this.state.currentContactData.phoneNumber
+        ).then(state => this.setState(state))
     }
 
     editContactReq() {
-        axios.put('http://localhost:9090/changeContact',
-            qs.stringify({
-                "id": this.state.currentContactData.id,
-                "name": this.state.currentContactData.name,
-                "phoneNumber": this.state.currentContactData.phoneNumber
-            }), {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            }
-        ).then(() => this.refreshContacts()
-        ).catch(error => this.catchError(error))
+        this.requestService.editContact(
+            this.state.currentContactData.id,
+            this.state.currentContactData.name,
+            this.state.currentContactData.phoneNumber
+        ).then(state => this.setState(state))
     }
 
     findContactReq(filter) {
-        axios.get('http://localhost:9090/findBy' + filter, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            params: {
-                "filter": this.state.findContactData
-            }
-        }).then((response) => {
-            this.setState({
-                persons: response.data,
-                findContactData: '',
-                findContactModal: false
-            })
-        }).catch(error => this.catchError(error))
+        this.requestService.findContact(
+            filter,
+            this.state.findContactData
+        ).then(state => this.setState(state))
     }
 
     deleteContactReq() {
-        axios.delete('http://localhost:9090/deleteContact',
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                params: {
-                    "id": this.state.currentContactData.id
-                }
-            }
-        ).then(() => this.refreshContacts()
-        ).catch(error => this.catchError(error))
+        this.requestService.deleteContact(this.state.currentContactData.id).then(state => this.setState(state))
     }
+
 
     goBack() {
         this.refreshContacts()
